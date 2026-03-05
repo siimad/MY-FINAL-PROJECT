@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>River Bend Station - FloodMonitor</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/cards.css">
+    <!-- chart library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background:#f0f4f8; color:#2c3e50; margin:0; }
+        .header { display:flex; align-items:center; padding:1rem 2rem; background:#fff; box-shadow:0 2px 4px rgba(0,0,0,0.1); }
+        .header .back-btn { margin-right:1rem; cursor:pointer; }
+        .header .station-info { flex:1; display:flex; align-items:center; gap:1rem; }
+        .header .status-badge { padding:0.3rem 0.6rem; border-radius:4px; color:#fff; font-weight:600; }
+        .header .status-normal { background:#2ecc71; }
+        .header .status-warning { background:#f39c12; }
+        .header .status-critical { background:#e74c3c; }
+
+        .stats-row { display:flex; gap:1rem; padding:1rem 2rem; }
+        .stats-card { background:#fff; flex:1; padding:1rem; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+        .stats-card .label { font-size:0.85rem; color:#7f8c8d; }
+        .stats-card .value { font-size:1.6rem; font-weight:bold; }
+        .stats-card .icon { margin-left:0.5rem; }
+
+        #mainChart { height:300px; background:#ecf0f1; border-radius:8px; }
+        .chart-controls { display:flex; gap:0.5rem; margin-top:0.5rem; }
+        .chart-controls button { padding:0.4rem 0.8rem; border:none; border-radius:4px; cursor:pointer; background:#3498db; color:#fff; }
+        .chart-controls button:hover { background:#2980b9; }
+
+        .middle-section { display:flex; gap:1rem; padding:1rem 2rem; }
+        .middle-column { flex:1; background:#fff; padding:1rem; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1); }
+        .toggle-group { display:flex; gap:1rem; margin-bottom:1rem; }
+        .toggle-group label { display:flex; align-items:center; gap:0.3rem; }
+        .stats-box { font-size:0.9rem; line-height:1.4; }
+        .prediction-panel div { margin-bottom:0.5rem; }
+        .threshold-inputs input { width:60px; padding:0.3rem; margin-right:0.5rem; }
+
+        .bottom-section { padding:1rem 2rem; }
+        .timeline, .logs { background:#fff; padding:1rem; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1); margin-bottom:1rem; }
+        .export-btns { display:flex; gap:1rem; margin-top:1rem; }
+        .export-btns button { padding:0.5rem 1rem; border:none; border-radius:4px; background:#3498db; color:#fff; cursor:pointer; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="back-btn" onclick="window.location.href='index.html'">← Dashboard</div>
+        <div class="station-info">
+            <h2>River Bend Station</h2>
+            <div class="status-badge status-normal" id="stationStatus">Normal</div>
+            <div class="calibration">Last calibration: 2026-02-28</div>
+        </div>
+    </div>
+
+    <div class="stats-row">
+        <div class="stats-card"><div class="label">Current Level</div><div class="value" id="currentLevel">2.8m <span class="icon">↑</span></div></div>
+        <div class="stats-card"><div class="label">Rate of Change</div><div class="value" id="rateChange">+0.3m/h</div></div>
+        <div class="stats-card"><div class="label">Time to Critical</div><div class="value" id="timeToCritical">2.5h</div></div>
+        <div class="stats-card"><div class="label">Battery</div><div class="value" id="battery">87% <span class="icon">🔋</span></div></div>
+    </div>
+
+    <div style="padding:1rem 2rem;">
+        <canvas id="mainChart"></canvas>
+        <div class="chart-controls">
+            <button data-range="6h">6h</button>
+            <button data-range="12h">12h</button>
+            <button data-range="24h" class="active">24h</button>
+            <button data-range="7d">7d</button>
+            <button id="downloadData">Download</button>
+            <button id="shareChart">Share</button>
+        </div>
+    </div>
+
+    <div class="middle-section">
+        <div class="middle-column">
+            <h3>Historical Comparison</h3>
+            <div class="toggle-group">
+                <label><input type="checkbox" id="compareYesterday"> Yesterday</label>
+                <label><input type="checkbox" id="compareWeek"> Last week</label>
+                <label><input type="checkbox" id="compareYear"> Last year</label>
+            </div>
+            <div class="stats-box">
+                <p>Min level today: 1.2m</p>
+                <p>Max level today: 2.9m</p>
+                <p>Average: 2.1m</p>
+                <p>Historical avg: 1.8m</p>
+            </div>
+        </div>
+        <div class="middle-column">
+            <h3>Prediction</h3>
+            <div class="prediction-panel">
+                <div>Next 6h: 3.1m</div>
+                <div>Next 12h: 2.9m</div>
+                <div>Next 24h: 2.5m</div>
+                <div>Confidence: 85%</div>
+            </div>
+            <h3>Alert thresholds</h3>
+            <div class="threshold-inputs">
+                <input type="number" step="0.1" value="2.0" id="warnLevel">m
+                <input type="number" step="0.1" value="3.0" id="critLevel">m
+                <button id="saveThresholds">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-section">
+        <div class="timeline">Recent events timeline (placeholder)</div>
+        <div class="logs">Calibration logs / maintenance history</div>
+        <div class="export-btns"><button>Export CSV</button><button>Export PDF</button></div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script>
+        // read query param and set station name
+        function getParam(name) {
+            const params = new URLSearchParams(window.location.search);
+            return params.get(name);
+        }
+        const stationParam = getParam('station');
+        if (stationParam) {
+            document.querySelector('.header h2').textContent = stationParam.replace(/%20/g,' ');
+        }
+        // placeholder chart init
+        if (typeof Chart !== 'undefined') {
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            new Chart(ctx, { type:'line', data:{ labels:['',''], datasets:[{label:'Level',data:[2.5,2.8],borderColor:'#3498db'}]}, options:{scales:{y:{min:0,max:4}}} });
+        }
+        // wire range buttons
+        document.querySelectorAll('.chart-controls button[data-range]').forEach(btn=>{
+            btn.addEventListener('click',()=>{
+                document.querySelectorAll('.chart-controls button').forEach(b=>b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+        document.getElementById('downloadData').addEventListener('click',()=>alert('Download not implemented'));
+        document.getElementById('shareChart').addEventListener('click',()=>alert('Share not implemented'));
+    </script>
+</body>
+</html>

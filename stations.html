@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stations - Flood Monitoring</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/cards.css">
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">FloodMonitor</div>
+        <ul class="nav-links">
+            <li><a href="index.html">Dashboard</a></li>
+            <li><a href="sensors.html">Sensors</a></li>
+            <li><a href="predictions.html">Predictions</a></li>
+            <li><a href="alerts.html">Alerts</a></li>
+            <li><a href="stations.html" class="active">Stations</a></li>
+            <li><a href="login.html" class="login-btn">Login</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <h1>Monitoring Stations</h1>
+        <div id="map" style="height: 500px; background: #e9ecef; border-radius: 10px; margin: 20px 0;">
+        </div>
+        
+        <div class="stations-list" id="stationsList">
+            <!-- Stations will be loaded here -->
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <!-- leaflet script -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        let stationMap;
+        function initializeStationMap() {
+            if (stationMap) return;
+            stationMap = L.map('map').setView([0.3476, 32.5825], 10);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(stationMap);
+            // Ensure Leaflet properly sizes the map (useful if container styles change)
+            setTimeout(() => {
+                if (stationMap && typeof stationMap.invalidateSize === 'function') {
+                    stationMap.invalidateSize();
+                }
+            }, 200);
+        }
+
+        async function loadStations() {
+            try {
+                console.log('Loading stations from API...');
+                const stations = await FloodMonitoringAPI.getStations();
+                console.log('Stations loaded:', stations && stations.length);
+                // filter to MPIG only
+                const mpigStations = (stations || []).filter(s => {
+                    const text = ((s.name||'') + ' ' + (s.location||'')).toLowerCase();
+                    return text.includes('mpig');
+                });
+                renderStations(mpigStations);
+                populateMap(mpigStations);
+            } catch (error) {
+                console.error('Failed to load stations:', error);
+                const mapEl = document.getElementById('map');
+                if (mapEl) mapEl.innerHTML = '<p style="padding:20px;">Could not load stations. See console for details.</p>';
+            }
+        }
+
+        function renderStations(stations) {
+            const container = document.getElementById('stationsList');
+
+            const stationsHTML = stations.map(station => `
+                <a href="station_detail.html?station=${encodeURIComponent(station.id || station.name)}" style="text-decoration:none; color:inherit;">
+                <div class="sensor-card">
+                    <div class="sensor-header">
+                        <div class="sensor-name">${station.name}</div>
+                        <span class="status-indicator ${station.status === 'active' ? 'status-normal' : 'status-danger'}"></span>
+                    </div>
+                    <p><strong>Location:</strong> ${station.location}</p>
+                    <p><strong>Coordinates:</strong> ${station.latitude}, ${station.longitude}</p>
+                    <p><strong>Last Reading:</strong> ${new Date(station.lastReading).toLocaleString()}</p>
+                </div>
+                </a>
+            `).join('');
+
+            container.innerHTML = stationsHTML;
+        }
+
+        function populateMap(stations) {
+            console.log('populateMap called with', stations && stations.length);
+            initializeStationMap();
+            if (!stations || stations.length === 0) {
+                console.warn('No stations to display on map');
+                return;
+            }
+            stations.forEach(s => {
+                if (s.latitude != null && s.longitude != null) {
+                    if (typeof L === 'undefined' || !stationMap) {
+                        console.error('Leaflet not available, cannot add markers');
+                        return;
+                    }
+                    const m = L.marker([s.latitude, s.longitude]).addTo(stationMap);
+                    m.bindPopup(`<strong><a href="station_detail.html?station=${encodeURIComponent(s.id||s.name)}" style="color:#3498db;">${s.name}</a></strong><br>${s.location}`);
+                }
+            });
+            // Remove any placeholder children inside #map (if present)
+            const mapEl = document.getElementById('map');
+            if (mapEl && mapEl.children.length > 0) {
+                Array.from(mapEl.children).forEach(c => {
+                    if (c.tagName.toLowerCase() === 'p') c.remove();
+                });
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadStations);
+    </script>
+</body>
+</html>

@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flood Monitoring Dashboard - Fully Integrated</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f7fa; }
+                
+        /* leaflet map container needs explicit height */
+        #dashboardMap { height: 400px; margin-bottom: 1.5rem; border: 1px solid #ccc; border-radius: 8px; }
+
+        nav { background: #2c3e50; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        nav .nav-brand { font-size: 1.5rem; font-weight: 600; }
+        nav .nav-right { display: flex; gap: 1rem; align-items: center; margin-left: auto; }
+        nav #user-info { font-weight: 600; }
+        nav #signOutBtn { padding: 0.5rem 1rem; background: #e74c3c; border: none; color: white; border-radius: 4px; cursor: pointer; }
+        nav #signOutBtn:hover { background: #c0392b; }
+        
+        .container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+        
+        .card { background: white; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 1.5rem; margin-bottom: 1.5rem; }
+        .card h2 { margin-bottom: 1rem; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 0.5rem; }
+        .card h3 { margin-top: 1rem; margin-bottom: 0.5rem; color: #34495e; font-size: 1rem; }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+        .stat-box { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 8px; text-align: center; }
+        .stat-box.rainfall { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .stat-box.temperature { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .stat-box .stat-value { font-size: 2rem; font-weight: 700; }
+        .stat-box .stat-label { font-size: 0.9rem; opacity: 0.9; margin-top: 0.5rem; }
+        
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #ecf0f1; padding: 1rem; text-align: left; font-weight: 600; color: #2c3e50; }
+        td { padding: 0.75rem 1rem; border-bottom: 1px solid #ecf0f1; }
+        tr:hover { background: #f9f9f9; }
+        
+        .alert { padding: 1rem; margin: 1rem 0; border-radius: 4px; border-left: 4px solid; }
+        .alert.success { background: #d4edda; border-color: #28a745; color: #155724; }
+        .alert.error { background: #f8d7da; border-color: #dc3545; color: #721c24; }
+        .alert.info { background: #d1ecf1; border-color: #17a2b8; color: #0c5460; }
+        .alert.loading { background: #fff3cd; border-color: #ffc107; color: #856404; }
+        
+        .btn { padding: 0.75rem 1.5rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.95rem; font-weight: 600; transition: all 0.3s ease; }
+        .btn-primary { background: #3498db; color: white; }
+        .btn-primary:hover { background: #2980b9; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-danger:hover { background: #c0392b; }
+        
+        .loading-spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .profile-badge { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: #ecf0f1; border-radius: 20px; }
+        .profile-badge .badge-icon { width: 32px; height: 32px; background: #3498db; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; }
+        
+        @media (max-width: 768px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            table { font-size: 0.9rem; }
+            td, th { padding: 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">FloodMonitor Integrated</div>
+        <ul class="nav-links" style="list-style:none; display:flex; gap:1rem;">
+            <li><a href="dashboard_integrated.html" style="color:white; text-decoration:none;">Home</a></li>
+            <li><a href="sensors.html" style="color:white; text-decoration:none;">Sensors</a></li>
+            <li><a href="predictions.html" style="color:white; text-decoration:none;">Predictions</a></li>
+            <li><a href="alerts.html" style="color:white; text-decoration:none;">Alerts</a></li>
+            <li><a href="stations.html" style="color:white; text-decoration:none;">Stations</a></li>
+        </ul>
+        <div class="nav-right">
+            <div id="user-info" style="display:none;"></div>
+            <div class="profile-badge" id="profile-badge" style="display:none;">
+                <div class="badge-icon">A</div>
+                <div>50 yrs exp</div>
+            </div>
+            <button id="signOutBtn" style="display:none;">Sign Out</button>
+        </div>
+    </nav>
+
+
+    <div class="container">
+        <!-- Status Alert -->
+        <div id="statusAlert" class="alert alert-info" style="display:none;"></div>
+
+        <!-- Developer Profile Card -->
+        <div class="card" id="profileCard" style="display:none;">
+            <p>Professional architecture, system integration, data flow optimization, and real-time monitoring expertise.</p>
+        </div>
+
+        <!-- Dashboard Header -->
+        <div class="card">
+            <h2>Sensor Data Dashboard</h2>
+            <p>Real-time flood monitoring system with integrated frontend, backend, and database.</p>
+            <button class="btn btn-primary" onclick="refreshSensorData()">Refresh Data</button>
+        </div>
+
+        <!-- Statistics -->
+        <div id="statsContainer" style="display:none;">
+            <div class="stats-grid" id="statsGrid"></div>
+        </div>
+
+        <!-- Map of sensors -->
+        <div id="dashboardMap"></div>
+
+        <!-- weather summary card -->
+        <div id="weatherCard" class="card" style="display:none;">
+            <h2>Daily Weather</h2>
+            <div id="weatherContent">Loading...</div>
+        </div>
+
+        <!-- Sensor Readings Table -->
+        <div class="card">
+            <h2>Live Sensor Readings</h2>
+            <table id="sensorTable">
+                <thead>
+                    <tr>
+                        <th>Sensor ID</th>
+                        <th>Location</th>
+                        <th>Rainfall (mm)</th>
+                        <th>Temperature (°C)</th>
+                        <th>Humidity (%)</th>
+                        <th>Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody id="sensorTableBody">
+                    <tr><td colspan="6" style="text-align:center;"><div class="loading-spinner"></div> Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- API Status -->
+        <div class="card">
+            <h2>System Status</h2>
+            <div id="apiStatus">
+                <p>Frontend: Connected</p>
+                <p>Backend: <span id="backendStatus">Checking...</span></p>
+                <p>Database: <span id="dbStatus">Checking...</span></p>
+                <p>Authentication: <span id="authStatus">Checking...</span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" integrity="sha256-xodZBntM7JyXgXIYh3WXjit0KwB0D3ynxG+vMqjE0Oo=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js" integrity="sha256-gZ5H5spjPp0gy+eGVjNZtEirT5U/IOR1iVyhG1LZQVo=" crossorigin=""></script>
+    <script>
+        // ============ Configuration ============
+        const API_BASE = 'http://localhost:5000/api';
+        const STATE = {
+            authToken: localStorage.getItem('authToken'),
+            authUser: localStorage.getItem('authUser'),
+            isAuthenticated: !!localStorage.getItem('authToken')
+        };
+        let dashboardMap;
+
+        // --- helper for filtering MPIG locations ---
+        function filterMPIG(readings) {
+            return (readings || []).filter(r => {
+                const loc = (r.location || r.sensor_id || '').toString().toLowerCase();
+                return loc.includes('mpig');
+            });
+        }
+
+        async function loadWeather(lat, lon) {
+            if (lat == null || lon == null) return;
+            try {
+                const res = await apiCall(`/weather/forecast?latitude=${lat}&longitude=${lon}`);
+                if (res.success && res.data) {
+                    displayWeather(res.data);
+                } else {
+                    document.getElementById('weatherContent').innerText = 'Unable to fetch weather.';
+                }
+            } catch (err) {
+                console.error('weather load error', err);
+                document.getElementById('weatherContent').innerText = 'Error loading weather';
+            }
+        }
+
+        function displayWeather(data) {
+            // simple list of daily forecasts
+            const container = document.getElementById('weatherContent');
+            if (!data || !data.forecast) {
+                container.innerText = 'No weather information available';
+                return;
+            }
+            const items = data.forecast.map(f => {
+                const date = new Date(f.date * 1000).toLocaleDateString();
+                return `<div><strong>${date}</strong>: ${f.summary || ''}, high ${f.temp_max}°C, low ${f.temp_min}°C</div>`;
+            }).join('');
+            container.innerHTML = items;
+            document.getElementById('weatherCard').style.display = 'block';
+        }
+
+        function initDashboardMap() {
+            if (dashboardMap) return;
+            dashboardMap = L.map('dashboardMap').setView([0.3476, 32.5825], 10);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(dashboardMap);
+        }
+
+        function plotSensorMarkers(readings) {
+            if (!dashboardMap) initDashboardMap();
+            const latlngs = [];
+            readings.forEach(r => {
+                if (r.latitude && r.longitude) {
+                    const coords = [r.latitude, r.longitude];
+                    latlngs.push(coords);
+                    const m = L.circleMarker(coords, {
+                        radius: 8,
+                        color: '#3498db',
+                        fillOpacity: 0.6
+                    }).addTo(dashboardMap);
+                    m.bindPopup(`<a href="station_detail.html?station=${encodeURIComponent(r.sensor_id||r.location)}" style="color:#3498db;">Sensor ${r.sensor_id}</a><br>Rain: ${r.rainfall}<br>Temp: ${r.temperature}`);
+                }
+            });
+            if (latlngs.length) {
+                const bounds = L.latLngBounds(latlngs);
+                dashboardMap.fitBounds(bounds.pad(0.5));
+            }
+        }
+
+        // ============ Auth & UI Initialization ============
+        function initializeUI() {
+            const userInfo = document.getElementById('user-info');
+            const signOutBtn = document.getElementById('signOutBtn');
+            const profileBadge = document.getElementById('profile-badge');
+            const profileCard = document.getElementById('profileCard');
+
+            if (STATE.isAuthenticated) {
+                userInfo.textContent = `${STATE.authUser || 'User'} • 50 yrs exp`;
+                userInfo.style.display = 'block';
+                signOutBtn.style.display = 'inline-block';
+                profileBadge.style.display = 'flex';
+                profileBadge.querySelector('.badge-icon').textContent = (STATE.authUser || 'U')[0].toUpperCase();
+                profileCard.style.display = 'block';
+                
+                signOutBtn.addEventListener('click', handleSignOut);
+                loadSensorData();
+                checkSystemStatus();
+            } else {
+                // add login link to nav when not signed in
+                const navLinks = document.querySelector('nav .nav-links');
+                if (navLinks && !navLinks.querySelector('.login-link')) {
+                    const li = document.createElement('li');
+                    li.innerHTML = '<a href="login.html" class="login-link" style="color:white; text-decoration:none;">Login</a>';
+                    navLinks.appendChild(li);
+                }
+                showAlert('Not authenticated. Please login first.', 'error');
+                setTimeout(() => window.location.href = 'login.html', 2000);
+            }
+        }
+
+        function handleSignOut() {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('authUser');
+            window.location.href = 'login.html';
+        }
+
+        // ============ API Communication ============
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${STATE.authToken}`
+            };
+
+            try {
+                const options = {
+                    method,
+                    headers
+                };
+                if (data) options.body = JSON.stringify(data);
+
+                const response = await fetch(`${API_BASE}${endpoint}`, options);
+                if (response.status === 401) {
+                    handleSignOut();
+                    throw new Error('Unauthorized');
+                }
+                const result = await response.json();
+                return { success: response.ok, data: result, status: response.status };
+            } catch (err) {
+                console.error(`API Error (${endpoint}):`, err);
+                return { success: false, error: err.message };
+            }
+        }
+
+        // ============ Data Loading & Display ============
+        async function loadSensorData() {
+            showAlert('Loading sensor data...', 'loading');
+            
+            const result = await apiCall('/sensors/readings?hours=24&limit=100');
+            
+            if (result.success && result.data.readings) {
+                // keep only MPIG stations
+                const filtered = filterMPIG(result.data.readings);
+                displaySensorData(filtered);
+                updateStatistics(filtered);
+                plotSensorMarkers(filtered);
+
+                // if we have at least one reading, use first coordinates to fetch weather
+                if (filtered.length > 0 && filtered[0].latitude && filtered[0].longitude) {
+                    loadWeather(filtered[0].latitude, filtered[0].longitude);
+                }
+
+                document.getElementById('dbStatus').textContent = `Connected (${filtered.length} records)`;
+                showAlert('Sensor data loaded successfully', 'success');
+            } else {
+                showAlert(`Failed to load sensor data: ${result.error || result.data?.message || 'Unknown error'}`, 'error');
+                document.getElementById('dbStatus').textContent = 'Error';
+            }
+        }
+
+        function displaySensorData(readings) {
+            const tbody = document.getElementById('sensorTableBody');
+            tbody.innerHTML = '';
+
+            if (!readings || readings.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No sensor data available</td></tr>';
+                return;
+            }
+
+            readings.forEach(reading => {
+                const row = document.createElement('tr');
+                const ts = new Date(reading.timestamp || Date.now()).toLocaleString();
+                row.innerHTML = `
+                    <td>${reading.sensor_id || 'N/A'}</td>
+                    <td>${reading.location || 'N/A'}</td>
+                    <td>${(reading.rainfall || 0).toFixed(2)}</td>
+                    <td>${(reading.temperature || 0).toFixed(2)}</td>
+                    <td>${(reading.humidity || 0).toFixed(2)}</td>
+                    <td>${ts}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateStatistics(readings) {
+            if (!readings || readings.length === 0) return;
+
+            const stats = {
+                avgRainfall: (readings.reduce((sum, r) => sum + (r.rainfall || 0), 0) / readings.length).toFixed(2),
+                maxRainfall: Math.max(...readings.map(r => r.rainfall || 0)).toFixed(2),
+                avgTemp: (readings.reduce((sum, r) => sum + (r.temperature || 0), 0) / readings.length).toFixed(2),
+                avgHumidity: (readings.reduce((sum, r) => sum + (r.humidity || 0), 0) / readings.length).toFixed(2)
+            };
+
+            const statsGrid = document.getElementById('statsGrid');
+            statsGrid.innerHTML = `
+                <div class="stat-box">
+                    <div class="stat-value">${stats.avgRainfall}</div>
+                    <div class="stat-label">Avg Rainfall (mm)</div>
+                </div>
+                <div class="stat-box rainfall">
+                    <div class="stat-value">${stats.maxRainfall}</div>
+                    <div class="stat-label">Max Rainfall (mm)</div>
+                </div>
+                <div class="stat-box temperature">
+                    <div class="stat-value">${stats.avgTemp}°C</div>
+                    <div class="stat-label">Avg Temperature</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">${stats.avgHumidity}%</div>
+                    <div class="stat-label">Avg Humidity</div>
+                </div>
+            `;
+            document.getElementById('statsContainer').style.display = 'block';
+        }
+
+        // ============ System Status Check ============
+        async function checkSystemStatus() {
+            const backendStatus = document.getElementById('backendStatus');
+            const authStatus = document.getElementById('authStatus');
+
+            // Check backend connectivity
+            const healthResult = await fetch(`${API_BASE.replace('/api', '')}/`).then(r => r.json()).catch(() => ({status: 'offline'}));
+            backendStatus.textContent = healthResult.status === 'offline' ? 'Offline' : 'Connected';
+            backendStatus.style.color = healthResult.status === 'offline' ? 'red' : 'green';
+
+            // Check auth
+            authStatus.textContent = STATE.isAuthenticated ? 'Authenticated' : 'Not authenticated';
+            authStatus.style.color = STATE.isAuthenticated ? 'green' : 'red';
+        }
+
+        function refreshSensorData() {
+            loadSensorData();
+        }
+
+        // ============ Utilities ============
+        function showAlert(message, type = 'info') {
+            const alert = document.getElementById('statusAlert');
+            alert.textContent = message;
+            alert.className = `alert alert-${type}`;
+            alert.style.display = 'block';
+            
+            if (type !== 'loading') {
+                setTimeout(() => alert.style.display = 'none', 5000);
+            }
+        }
+
+        // ============ Initialization ============
+        document.addEventListener('DOMContentLoaded', );
+        
+        // Auto-refresh every 30 seconds
+        setInterval(refreshSensorData, 30000);
+    </script>
+</body>
+</html>

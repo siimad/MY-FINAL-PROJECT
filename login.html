@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Flood Monitoring</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+            padding: 40px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .login-form input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        .login-btn:hover {
+            background: #5a6fd8;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">FloodMonitor</div>
+        <ul class="nav-links">
+            <li><a href="index.html">Dashboard</a></li>
+            <li><a href="sensors.html">Sensors</a></li>
+            <li><a href="predictions.html">Predictions</a></li>
+            <li><a href="alerts.html">Alerts</a></li>
+            <li><a href="stations.html">Stations</a></li>
+        </ul>
+        <div class="nav-right" style="margin-left:auto; display:flex; align-items:center; gap:12px;">
+            <div id="user-info" style="display:none; font-weight:600; color:#333;"></div>
+            <button id="signOutBtn" style="display:none; padding:8px 12px; background:#ef4444; color:white; border:none; border-radius:6px; cursor:pointer;">Sign Out</button>
+        </div>
+    </nav>
+
+    <div class="login-container">
+        <h2 style="text-align: center; margin-bottom: 20px;">Login</h2>
+        <form class="login-form" onsubmit="handleLogin(event)">
+            <input type="email" id="email" placeholder="Email" required>
+            <input type="text" id="username" placeholder="Username" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <input type="tel" id="contact" placeholder="Contact number (optional)">
+            <button type="submit" class="login-btn">Login</button>
+        </form>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script>
+        // Sync navbar and profile UI with auth state managed in js/auth.js
+        function updateAuthUI() {
+            const token = localStorage.getItem('authToken');
+            const signedIn = !!token;
+            const userInfo = document.getElementById('user-info');
+            const signOutBtn = document.getElementById('signOutBtn');
+            const profileCard = document.getElementById('profile-card');
+
+            if (signedIn) {
+                // show user info and sign out
+                const storedUser = localStorage.getItem('authUser') || 'User';
+                userInfo.textContent = storedUser + ' • 50 yrs exp';
+                userInfo.style.display = 'block';
+                signOutBtn.style.display = 'inline-block';
+                profileCard.style.display = 'block';
+            } else {
+                userInfo.style.display = 'none';
+                signOutBtn.style.display = 'none';
+                profileCard.style.display = 'none';
+            }
+        }
+
+        // Wire sign out button to authManager.logout if available, otherwise fallback
+        document.getElementById('signOutBtn').addEventListener('click', function() {
+            if (window.authManager && typeof window.authManager.logout === 'function') {
+                window.authManager.logout();
+            } else {
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('authUser');
+                updateAuthUI();
+                window.location.href = 'login.html';
+            }
+        });
+
+        
+    </script>
+</body>
+</html>

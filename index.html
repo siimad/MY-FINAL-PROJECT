@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flood Monitoring Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/cards.css">
+    <!-- leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <!-- charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background: #6e4d4d; color: #2c3e50; margin:0; }
+        .header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 2rem; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header .title { font-size: 1.5rem; font-weight: bold; }
+        .header .status-badge { display: flex; align-items: center; gap: 0.5rem; }
+        .status-badge .dot { width: 10px; height: 10px; border-radius: 50%; background: #2ecc71; }
+        .header .timestamp { font-size: 0.9rem; color: #7f8c8d; }
+        .header .user-controls { display: flex; align-items: center; gap: 1rem; }
+        .toggle-switch { cursor: pointer; }
+
+        .stats-bar { display: flex; gap: 1rem; padding: 1rem 2rem; }
+        .stat-card { background: #fff; flex:1; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: space-between; }
+        .stat-card .label { font-size: 0.85rem; color: #7f8c8d; }
+        .stat-card .value { font-size: 1.8rem; font-weight: bold; margin-top: 0.25rem; }
+        .stat-card .indicator { font-size: 0.75rem; }
+
+        .main-content { display: flex; gap: 1rem; padding: 1rem 2rem; }
+        .main-left { flex: 3; background:#fff; padding:1rem; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1); }
+        .main-right { flex:2; background:#fff; padding:1rem; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1); }
+        #map { height:300px; background:#e1eaff; border-radius:8px; }
+        .legend { font-size:0.8rem; margin-top:0.5rem; }
+        .alerts-panel { display:flex; flex-direction: column; }
+        .alert-item { padding:0.5rem; border-radius:6px; margin-bottom:0.5rem; color:#fff; }
+        .alert-item.high { background:#e74c3c; }
+        .alert-item.medium { background:#f39c12; }
+
+        .bottom-section { display: flex; gap:1rem; padding:1rem 2rem; flex-wrap: wrap; }
+        .bottom-column { flex:1; background:#fff; padding:1rem; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1); min-width:250px; }
+        .station-card { margin-bottom:1rem; }
+        .gauge { height:60px; background:#ecf0f1; border-radius:4px; position:relative; }
+        .gauge-fill { height:100%; background:#3498db; width:50%; border-radius:4px; }
+        .chart-placeholder { height:200px; background:#ecf0f1; border-radius:4px; }
+        .weather-widget { text-align:center; }
+
+        /* responsive adjustments */
+        @media (max-width: 900px) { .main-content { flex-direction: column; } }
+        @media (max-width: 600px) { .stats-bar { flex-direction: column; } }
+        /* dark mode */
+        body.dark-mode { background: #2c3e50; color: #ecf0f1; }
+        body.dark-mode .header, body.dark-mode .stat-card, body.dark-mode .main-left, body.dark-mode .main-right, body.dark-mode .bottom-column { background: #34495e; color: #ecf0f1; }
+        body.dark-mode .gauge { background: #3b5998; }
+        body.dark-mode .chart-placeholder { background: #3b5998; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">FloodMonitor</div>
+        <ul class="nav-links">
+            <li><a href="index.html" class="active">Dashboard</a></li>
+            <li><a href="sensors.html">Sensors</a></li>
+            <li><a href="predictions.html">Predictions</a></li>
+            <li><a href="alerts.html">Alerts</a></li>
+            <li><a href="stations.html">Stations</a></li>
+            <li><a href="login.html" class="login-btn">Login</a></li>
+        </ul>
+    </nav>
+
+    <!-- header section -->
+    <div class="header">
+        <div class="title">FloodMonitor</div>
+        <div class="status-badge"><div class="dot"></div><span>Operational</span></div>
+        <div class="timestamp" id="lastUpdated">Last updated: --:--</div>
+        <div class="user-controls">
+            <div class="profile-icon"></div>
+            <div class="toggle-switch" id="themeToggle"></div>
+        </div>
+    </div>
+
+    <!-- stats bar -->
+    <div class="stats-bar">
+        <div class="stat-card">
+            <div class="label">Active Stations</div>
+            <div class="value">3</div>
+            <div class="indicator">online</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Total Alerts</div>
+            <div class="value">2 <span style="color:red;">•</span></div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Avg Water Level</div>
+            <div class="value">2.45m <span>↑</span></div>
+        </div>
+        <div class="stat-card">
+            <div class="label">System Status</div>
+            <div class="value">Operational </div>
+        </div>
+    </div>
+
+    <!-- main content area -->
+    <div class="main-content">
+        <div class="main-left">
+            <div id="map"></div>
+            <div class="legend">Legend: <span style="color:green;">Low</span> <span style="color:yellow;">Medium</span> <span style="color:red;">High</span></div>
+        </div>
+        <div class="main-right alerts-panel">
+            <h3>Recent Alerts (2)</h3>
+            <div class="alert-item high">Critical Level - Station A <span class="alert-time">10:23 AM</span></div>
+            <div class="alert-item medium">Warning Level - Station B <span class="alert-time">9:58 AM</span></div>
+            <a href="alerts.html">View All</a>
+        </div>
+    </div>
+
+    <!-- bottom section -->
+    <div class="bottom-section">
+        <div class="bottom-column">
+            <h4>Stations</h4>
+            <div class="station-card">
+                <strong>Station A</strong><br>
+                <div class="gauge"><div class="gauge-fill" style="width:70%;"></div></div>
+                <small>Status: <span style="color:green;">Normal</span></small><br>
+                <small>Last update: 10:15 AM</small>
+            </div>
+            <div class="station-card">
+                <strong>Station B</strong><br>
+                <div class="gauge"><div class="gauge-fill" style="width:50%;"></div></div>
+                <small>Status: <span style="color:yellow;">Warning</span></small><br>
+                <small>Last update: 9:50 AM</small>
+            </div>
+            <div class="station-card">
+                <strong>Station C</strong><br>
+                <div class="gauge"><div class="gauge-fill" style="width:30%;"></div></div>
+                <small>Status: <span style="color:green;">Normal</span></small><br>
+                <small>Last update: 10:00 AM</small>
+            </div>
+        </div>
+        <div class="bottom-column">
+            <h4>Water Level Chart</h4>
+            <canvas id="waterChart" class="chart-placeholder"></canvas>
+        </div>
+        <div class="bottom-column weather-widget">
+            <h4>Weather</h4>
+            <div>🌤️ 24°C</div>
+            <div>Rainfall: 5mm</div>
+            <div>Humidity: 78%</div>
+            <div>Wind: 12 km/h</div>
+            <div>6‑hr forecast: 🌦️🌤️☁️</div>
+        </div>
+    </div>
+
+
+    <script>
+        // update timestamp every minute
+        function updateTimestamp() {
+            const el = document.getElementById('lastUpdated');
+            if (el) {
+                const now = new Date();
+                el.textContent = 'Last updated: ' + now.toLocaleTimeString();
+            }
+        }
+        updateTimestamp();
+        setInterval(updateTimestamp, 60000);
+
+        // simple dark/light toggle
+        const themeToggle = document.getElementById('themeToggle');
+        themeToggle && themeToggle.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+        });
+    </script>
+
+    <script src="js/api.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>

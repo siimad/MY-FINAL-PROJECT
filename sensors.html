@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensors - Flood Monitoring</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/cards.css">
+    <style>
+        body { font-family: Arial, sans-serif; background:#313232; color:#2c3e50; }
+        .header { display:flex; justify-content:space-between; align-items:center; padding:1rem 2rem; background:#fff; box-shadow:0 2px 4px rgba(0,0,0,0.1); }
+        .header .title { font-size:1.5rem; font-weight:bold; }
+        .header .status { font-size:0.9rem; color:#2ecc71; }
+        .header .user { display:flex; align-items:center; gap:0.5rem; }
+
+        .action-bar { display:flex; gap:1rem; padding:0.5rem 2rem; background:#fff; box-shadow:0 2px 4px rgba(0,0,0,0.05); }
+        .action-bar button { padding:0.5rem 1rem; border:none; border-radius:5px; background:#3498db; color:#fff; cursor:pointer; }
+
+        .stats-row { display:flex; gap:1rem; padding:1rem 2rem; }
+        .stat-card { background:#c0bcbc; flex:1; padding:1rem; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+        .stat-card .label { font-size:0.85rem; color:#7f8c8d; }
+        .stat-card .value { font-size:1.6rem; font-weight:bold; }
+
+        #sensorGrid { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; padding:1rem 2rem; }
+        .sensor-card { background:#fff; padding:1rem; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+        .sensor-card .card-header { font-weight:600; margin-bottom:0.5rem; }
+        .sensor-card .gauge { height:10px; background:#ecf0f1; border-radius:5px; overflow:hidden; margin:0.5rem 0; }
+        .sensor-card .gauge-fill { height:100%; background:#3498db; }
+        .sensor-card .actions button { margin-right:0.5rem; padding:0.3rem 0.6rem; border:none; border-radius:4px; background:#3498db; color:#fff; cursor:pointer; }
+
+        .bottom-two { display:flex; gap:1rem; padding:1rem 2rem; }
+        .column { flex:1; background:#fff; padding:1rem; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1); }
+        .column h3 { margin-top:0; }
+        .events-list li { margin-bottom:0.5rem; }
+
+        .footer { text-align:center; padding:1rem; background:#fff; margin-top:2rem; font-size:0.85rem; color:#7f8c8d; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">FloodMonitor</div>
+        <ul class="nav-links">
+            <li><a href="index.html">Dashboard</a></li>
+            <li><a href="sensors.html" class="active">Sensors</a></li>
+            <li><a href="predictions.html">Predictions</a></li>
+            <li><a href="alerts.html">Alerts</a></li>
+            <li><a href="stations.html">Stations</a></li>
+            <li><a href="login.html" class="login-btn">Login</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <!-- header section -->
+        <div class="header">
+            <div>
+                <div class="title">FloodMonitor</div>
+                <div class="subtitle">Sensor Readings</div>
+            </div>
+            <div class="status">● Live | Last updated: <span id="lastUpdateTime">--:--</span></div>
+            
+        </div>
+
+        <!-- action bar -->
+        <div class="action-bar">
+            <button id="refreshBtn"> Refresh</button>
+            <button id="exportBtn"> Export</button>
+          
+        </div>
+
+        <!-- quick stats -->
+        <div class="stats-row">
+            <div class="stat-card"><div class="label">Total Sensors</div><div class="value">3</div><div class="sub">↑ Online</div></div>
+            <div class="stat-card"><div class="label">Active Alerts</div><div class="value">0</div><div class="sub">✓ Safe</div></div>
+        
+        </div>
+
+        <!-- sensor cards grid -->
+        <div id="sensorGrid">
+            <!-- sample cards -->
+            <div class="sensor-card">
+                <div class="card-header">WATER LEVEL SENSOR 1</div>
+                <div> 2.50 meters</div>
+                <div class="gauge"><div class="gauge-fill" style="width:70%;"></div></div>
+                <div>Type: water</div>
+                <div>Location: Kampala</div>
+                <div>Last: 2:15 PM</div>
+                <div>Trend: ↑ Rising</div>
+                <div>Battery: 87%</div>
+                <div class="actions"><button>View</button><button>Config</button></div>
+            </div>
+            <div class="sensor-card">
+                <div class="card-header">RAINFALL SENSOR 1</div>
+                <div> 45.30 mm</div>
+                <div class="gauge"><div class="gauge-fill" style="width:45%;"></div></div>
+                <div>Type: rainfall</div>
+                <div>Location: Kampala</div>
+                <div>Last: 2:15 PM</div>
+                <div>Rate: 5.2mm/hr</div>
+                <div>Battery: 92%</div>
+                <div class="actions"><button>View</button><button>Config</button></div>
+            </div>
+            <div class="sensor-card">
+                <div class="card-header">TEMPERATURE SENSOR 1</div>
+                <div> 24.50 °C</div>
+                <div class="gauge"><div class="gauge-fill" style="width:80%;"></div></div>
+                <div>Type: temperature</div>
+                <div>Location: Wakiso</div>
+                <div>Last: 2:15 PM</div>
+                <div>Range: 22-27°C</div>
+                <div>Battery: 76%</div>
+                <div class="actions"><button>View</button><button>Config</button></div>
+            </div>
+        </div>
+
+        <!-- bottom two-column area -->
+        <div class="bottom-two">
+            <div class="column">
+                <h3>Historical Chart</h3>
+                <div id="histChart" style="height:200px; background:#eee9e9; border-radius:8px;"></div>
+                <div class="chart-controls"><button>24h</button><button>7d</button><button>30d</button></div>
+
+                <h3>Sensor Health</h3>
+                <ul>
+                    <li>Water Level ● Online</li>
+                    <li>Rainfall ● Online</li>
+                    <li>Temp ● Online</li>
+                </ul>
+                <div>Signal: 87-98%</div>
+            </div>
+            <div class="column">
+                <h3>Recent Events</h3>
+                <ul class="events-list">
+                    <li>2:15 PM ✓ Data received</li>
+                    <li>2:10 PM ⚠ Rising water</li>
+                    <li>2:00 PM ✓ Battery check</li>
+                    <li>1:45 PM ✓ Calibration</li>
+                </ul>
+                <a href="#">View All</a>
+
+                <h3>Alert Thresholds</h3>
+                <div>Water Level: Warning [2.0m] Critical [3.0m]</div>
+                <div>Rainfall Rate: Heavy [10mm/hr] Extreme [20mm/hr]</div>
+                <button>Save Changes</button>
+
+                <h3>6-Hour Forecast</h3>
+                <div>Water: 2.8m ↑ (Warning)</div>
+                <div>Rain: 15mm expected</div>
+                <div>Risk: 🟡 Moderate</div>
+                <div>Action: Monitor closely</div>
+            </div>
+        </div>
+
+        <div class="footer">
+            © 2026 FloodMonitor
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/sensors.js"></script>
+</body>
+</html>

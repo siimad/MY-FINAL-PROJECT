@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alert Center - FloodMonitor</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/cards.css">
+    <style>
+        /* compact page-specific styles to match mockup */
+        .alerts-header { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:18px 0; }
+        .quick-stats { display:flex; gap:12px; margin-bottom:18px; }
+        .stat-card { background:#141414; padding:14px; border-radius:8px; min-width:120px; box-shadow:0 6px 18px rgba(0,0,0,0.06); }
+        .stat-card .title { font-weight:700; }
+        .filters { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+        .filters select, .filters input, .filters button { padding:8px 10px; border-radius:8px; border:1px solid #dcdcdc; background:white; }
+        .alerts-grid { display:grid; grid-template-columns: 2fr 320px; gap:20px; }
+        .alerts-list { background:linear-gradient(180deg,#151617,#ffffff); padding:18px; border-radius:10px; }
+        .alert-card { border-radius:8px; padding:14px; margin-bottom:12px; background:white; box-shadow:0 6px 18px rgba(0,0,0,0.04); display:flex; justify-content:space-between; gap:12px; }
+        .alert-left { max-width:72%; }
+        .alert-meta { color:#666; font-size:0.9rem; margin-top:6px; }
+        .severity { font-weight:800; padding:6px 10px; border-radius:999px; color:white; }
+        .severity.critical { background:#e74c3c; }
+        .severity.warning { background:#f39c12; }
+        .severity.info { background:#3498db; }
+        .actions button { margin-left:8px; padding:8px 10px; border-radius:8px; border:none; cursor:pointer; }
+        .sidebar { background:#1a1717; padding:16px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,0.04); }
+        .resolved-list .resolved-item { background:#131313; padding:10px; border-radius:8px; margin-bottom:8px; }
+        .timeline, .charts { margin-top:12px; }
+        .controls-row { display:flex; gap:8px; align-items:center; }
+        @media(max-width:900px){ .alerts-grid{grid-template-columns:1fr} .sidebar{position:static} }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">FloodMonitor</div>
+        <ul class="nav-links">
+            <li><a href="index.html">Dashboard</a></li>
+            <li><a href="sensors.html">Sensors</a></li>
+            <li><a href="predictions.html">Predictions</a></li>
+            <li><a href="alerts.html" class="active">Alerts</a></li>
+            <li><a href="stations.html">Stations</a></li>
+            <li><a href="login.html" class="login-btn">Login</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <div class="alerts-header">
+            <div>
+                <h1> Alert Center</h1>
+                <div class="muted">Flood Monitoring System</div>
+            </div>
+            <div style="text-align:right">
+                <div> Last Alert: <strong id="lastAlertAgo">2 min ago</strong></div>
+                <div class="muted">Active: <strong id="activeCount">3</strong> | Today: <strong id="todayCount">7</strong></div>
+            </div>
+        </div>
+
+        <!-- quick stats -->
+        <div class="quick-stats">
+            <div class="stat-card"><div class="title">🔴 CRITICAL</div><div id="criticalActive">2 Active</div><div class="muted">Immediate</div></div>
+            <div class="stat-card"><div class="title">🟡 WARNING</div><div id="warningActive">1 Active</div><div class="muted">Prepare</div></div>
+            <div class="stat-card"><div class="title">🔵 INFO</div><div id="infoActive">0 Active</div><div class="muted">Advisory</div></div>
+            <div class="stat-card"><div class="title"> RESOLVED</div><div id="resolvedCount">15</div><div class="muted">Total resolved</div></div>
+        </div>
+
+        <!-- filters & controls -->
+        <div class="filters controls-row">
+            <select id="severityFilter"><option value="all">All Alerts</option><option value="critical">Critical</option><option value="warning">Warning</option><option value="info">Info</option><option value="resolved">Resolved</option></select>
+            <select id="timeframeFilter"><option value="hour">Last Hour</option><option value="today">Today</option><option value="week">Week</option><option value="month">Month</option></select>
+            <select id="stationFilter"><option value="all">All Stations</option><option value="Kampala">Kampala</option><option value="Wakiso">Wakiso</option><option value="Jinja">Jinja</option></select>
+            <input id="searchBox" placeholder=" Search alerts by message, location, or time..." style="flex:1;">
+            <button id="clearFilters">Clear</button>
+        </div>
+
+        <div class="alerts-grid">
+            <div class="alerts-list">
+                <h3>Active Alerts (Priority)</h3>
+
+                <!-- critical alert example -->
+                <div class="alert-card" data-severity="critical">
+                    <div class="alert-left">
+                        <div><span class="severity critical">🔴 CRITICAL</span> <strong>River Bend Station</strong> — <span class="muted">2 min ago</span></div>
+                        <div class="alert-meta">Water Level: <strong>3.2m</strong> ⬆ (Critical: &gt;3.0m) · Rate of Rise: <strong>+0.5m/hr</strong> · Affected: low-lying communities</div>
+                    </div>
+                    <div class="alert-right actions">
+                        <button class="ack">✓ ACK</button>
+                        <button class="view"> MAP</button>
+                        <button class="notify"> SEND</button>
+                        <button class="resolve"> RESOLVE</button>
+                    </div>
+                </div>
+
+                <div class="alert-card" data-severity="critical">
+                    <div class="alert-left">
+                        <div><span class="severity critical">🔴 CRITICAL</span> <strong>Kampala Sensor</strong> — <span class="muted">15 min ago</span></div>
+                        <div class="alert-meta">Rapid Rise: Water Level 2.8m ⬆ (Warn:2.0m Crit:3.0m) · Rate: +0.8m/hr · Projected: 3.5m in 1 hour</div>
+                    </div>
+                    <div class="alert-right actions">
+                        <button class="ack">✓ ACK</button>
+                        <button class="view"> TREND</button>
+                        <button class="snooze"> SNOOZE</button>
+                    </div>
+                </div>
+
+                <h4 style="margin-top:16px">🟡 Warning Alerts</h4>
+                <div class="alert-card" data-severity="warning">
+                    <div class="alert-left">
+                        <div><span class="severity warning">🟡 WARNING</span> <strong>Wakiso Station</strong> — <span class="muted">45 min ago</span></div>
+                        <div class="alert-meta">Rainfall: 35mm (last 3h) · Forecast +20mm next 3h · Ground Saturation: 85% · Flood Risk: 45%</div>
+                    </div>
+                    <div class="alert-right actions">
+                        <button class="ack">✓ ACK</button>
+                        <button class="view"> MAP</button>
+                        <button class="remind"> REMIND</button>
+                    </div>
+                </div>
+
+                <h4 style="margin-top:18px">Recently Resolved</h4>
+                <div class="resolved-list">
+                    <div class="resolved-item"> RESOLVED - 1 hour ago — Water Level Alert normalized at 1.8m (Auto)</div>
+                    <div class="resolved-item"> RESOLVED - 3 hours ago — Temperature alert returned to normal (Operator: John)</div>
+                </div>
+
+                <div style="margin-top:18px; display:flex; gap:8px;">
+                    <button id="viewAllResolved">View All 15 Resolved</button>
+                    <button id="exportCSV">Export as CSV</button>
+                    <button id="printAlerts">Print</button>
+                </div>
+            </div>
+
+            <!-- right column / sidebar -->
+            <div>
+                <div class="sidebar">
+                    <h3>Alert Statistics & Trends</h3>
+                    <div style="display:flex; gap:8px; margin-top:12px;"><div style="flex:1"><canvas id="pieAlerts"></canvas></div><div style="flex:1"><canvas id="lineAlerts"></canvas></div></div>
+
+                    <h4 style="margin-top:12px">Top Locations</h4>
+                    <ol>
+                        <li>Kampala: 12</li>
+                        <li>Wakiso: 5</li>
+                        <li>Jinja: 3</li>
+                    </ol>
+
+                    <h4>Response Time</h4>
+                    <p>Average: <strong>4.2 min</strong></p>
+
+                    <h4 style="margin-top:12px">Notification Channels</h4>
+                    <p><input id="chEmail" type="checkbox" checked> admin@example.com <button class="mini">Test</button></p>
+                    <p><input id="chSms" type="checkbox" checked> +256 712 345 678 <button class="mini">Test</button></p>
+                    <p><input id="chSlack" type="checkbox"> #flood-alerts <button class="mini">Test</button></p>
+                    <p style="margin-top:8px"><button id="saveNotif">Save Settings</button> <button id="resetNotif">Reset</button></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- alert log -->
+        <div style="margin-top:20px; background:rgb(19, 18, 18); padding:14px; border-radius:10px;">
+            <h3>Alert Log</h3>
+            <table style="width:100%; border-collapse:collapse;">
+                <thead><tr><th>Date/Time</th><th>Type</th><th>Location</th><th>Status</th><th>Acknowledged</th></tr></thead>
+                <tbody id="alertLog">
+                    <tr><td>2026-03-02 14:30</td><td>🔴 Critical</td><td>Kampala</td><td style="color:#e74c3c">ACTIVE</td><td>Pending</td></tr>
+                    <tr><td>2026-03-02 14:15</td><td>🔴 Critical</td><td>Jinja</td><td style="color:#e74c3c">ACTIVE</td><td>John</td></tr>
+                    <tr><td>2026-03-02 13:45</td><td>🟡 Warning</td><td>Wakiso</td><td style="color:#f39c12">ACTIVE</td><td>Sarah</td></tr>
+                </tbody>
+            </table>
+            <div style="margin-top:8px"><button id="exportLog">Export as CSV</button> <button id="printLog">Print</button></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Minimal client-side interactions for alerts page
+        function toast(msg){ console.log(msg); }
+
+        document.querySelectorAll('.ack').forEach(btn=>btn.addEventListener('click', function(e){
+            this.disabled = true; this.textContent = 'ACKED'; toast('Acknowledged');
+        }));
+
+        document.querySelectorAll('.resolve').forEach(btn=>btn.addEventListener('click', function(e){
+            const card = this.closest('.alert-card'); if(card) card.remove(); toast('Resolved');
+        }));
+
+        document.querySelectorAll('.snooze').forEach(b=>b.addEventListener('click', ()=>alert('Snoozed for 15 minutes')));
+
+        document.getElementById('clearFilters').addEventListener('click', ()=>{
+            document.getElementById('severityFilter').value='all'; document.getElementById('timeframeFilter').value='hour'; document.getElementById('stationFilter').value='all'; document.getElementById('searchBox').value='';
+        });
+
+        document.getElementById('exportCSV').addEventListener('click', ()=>{
+            const cards = document.querySelectorAll('.alerts-list .alert-card');
+            const lines = Array.from(cards).map(c => c.querySelector('.alert-left').innerText.replace(/\n/g,' ').trim());
+            const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+            const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='alerts_export.csv'; a.click(); URL.revokeObjectURL(url);
+        });
+
+        // Simple charts with placeholder data
+        const pieCtx = document.getElementById('pieAlerts').getContext('2d');
+        new Chart(pieCtx, {type:'doughnut', data:{labels:['Critical','Warning','Info','Resolved'], datasets:[{data:[2,1,0,15], backgroundColor:['#e74c3c','#f39c12','#3498db','#2ecc71']}]}});
+        const lineCtx = document.getElementById('lineAlerts').getContext('2d');
+        new Chart(lineCtx, {type:'line', data:{labels:['Mon','Tue','Wed','Thu','Fri'], datasets:[{label:'Alerts', data:[1,3,2,5,4], borderColor:'#667eea', tension:0.3}]}, options:{scales:{y:{beginAtZero:true}}}});
+
+        // quick actions
+        document.getElementById('viewAllResolved').addEventListener('click', ()=>alert('Open resolved alerts list'));
+        document.getElementById('printAlerts').addEventListener('click', ()=>window.print());
+        document.getElementById('exportLog').addEventListener('click', ()=>alert('Exporting log...'));
+    </script>
+</body>
+</html>
